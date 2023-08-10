@@ -371,7 +371,7 @@ choose_results_train_3 = function(results_train, m, p, i, col_name) {
     return(result %>% dplyr::pull(col_name))
 }
 
-# Function to produce, for 1 simulation of underlying prices, the tracking error over time for both BS and ML models
+# Function to return, for 1 simulation of underlying prices, the tracking error over time for both BS and ML models
 tracking_path = function(target_fn, target_fn_d, testing, models, means, stds, K_test, T_test, b_test, eta_test, r_test, sigma_test, dummy_test, training_cols) { # models, means and stds are each lists with a number of elements equal to the number of training paths the model was trained with
     testing_path          = testing %>% dplyr::group_by(t) %>% dplyr::summarise(S = max(S), K = K_test, T = T_test, b = b_test,
                                                 eta=eta_test, r = r_test, sigma = sigma_test, dummy = dummy_test) # Get one entry for each date in chosen testing run
@@ -422,6 +422,7 @@ tracking_path = function(target_fn, target_fn_d, testing, models, means, stds, K
     return(testing_path)
 }
 
+# Function to run test_acc for each model for each testing simulation and tracking_path for each set of option terms in addition and return the results
 test_results = function(target_fn, target_fn_d, models, layers, params, results_per_model_train, testing, means, stds, opt_terms, training_cols, ensemble_type = "mean") {
     num_models         = length(models)
     num_params         = length(params)
@@ -521,6 +522,7 @@ test_results = function(target_fn, target_fn_d, models, layers, params, results_
     return(list(results_per_model, results_per_K, results_tbl, testing_paths, results_detail))
 }
 
+# Function to save all of the models in the nested list of models
 save_models = function(models, filepath, exp_no) {
     for (m in 1:length(models)) {
         for (p in 1:length(models[[m]])) {
@@ -531,6 +533,7 @@ save_models = function(models, filepath, exp_no) {
     }
 }
 
+# Function to reload all of the models in the nested list of models
 load_models = function(filepath, exp_no) {
     result = list()
     dirs_m = list.dirs(paste0(filepath,"models/", exp_no), recursive = FALSE)
@@ -550,5 +553,3 @@ load_models = function(filepath, exp_no) {
     }
     return(result)
 }
-
-models = load_models(filepath, 1)
