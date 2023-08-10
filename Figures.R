@@ -1,6 +1,9 @@
 library(RQuantLib)
 library(sde)
+
 library(readxl)
+library(scales)
+library(dplyr)
 
 filepath="C:/Users/xtc_e/OneDrive - University of Sussex/Documents/2-Proposal/"
 # filepath="C:/Users/eh555/OneDrive - University of Sussex/Documents/2-Proposal/"
@@ -9,7 +12,7 @@ source(paste0(filepath,"RFunctions.R"))
 ######################################
 # Load trained models and test results
 
-exp_no = 2
+exp_no = "7"
 # Load trained_models from disk
 trained_models = readRDS(paste0(filepath,"TrainedModels_",exp_no,".RDS"))
 models                  = trained_models[[1]]
@@ -54,13 +57,38 @@ legend(x="topleft", legend=c("0", "3", "6", "12"), title = "Months to Maturity",
 ################################
 # Plotting BS Barrier Call value
 
+# Values against S relative to payoff and standard call option
 K = 100; r = 0.05; v = 0.2; T = 1; b = 0.9; eta = 0.1
 Ss = seq(75, 120, 0.05)
 plot(Ss, sapply(Ss, call_payoff, K = K), type="l", lwd=2, xlab="Price of underlying asset",
      ylab="Value of option")
 EuroCallApplyLine(Ss, K, r, T, v, "red")
 lines(Ss, BSM_EU_call_barrier(Ss, K, b, eta, r, v, 0, T), col="blue")
-legend(x="topleft", legend=c("Payoff", "Standard Call", "Down-and-out"), title = "Types", lwd = 2, col = c("black", "red", "blue"))
+legend(x="topleft", legend=c("Payoff", "Standard Call", "Down-and-out"), title = "Types",
+       lwd = 2, col = c("black", "red", "blue"))
+
+# Values against each input
+S = 1; K = 1; r = 0.05; v = 0.2; T = 1; b = 0.9; eta = 0.1
+S_Ks = seq(0.25, 1.25, 0.005); Ts = seq(0, 2, 0.01); rs = seq(0.01, 0.12, 0.001)
+vs = seq(0.05, 0.5, 0.001); bs = seq(0.1, 0.999, 0.001); etas = seq(0, 0.5, 0.01)
+plot(S_Ks/max(S_Ks), BSM_EU_call_barrier(S_Ks, K, b, eta, r, v, 0, T), type="l", lwd=2,
+     xlab="Increasing value of input", ylab="Value of option", xlim=c(0,1))
+lines(Ts/max(Ts), BSM_EU_call_barrier(S, K, b, eta, r, v, 0, Ts), col="blue", lwd=2)
+lines(rs/max(rs), BSM_EU_call_barrier(S, K, b, eta, rs, v, 0, T), col="red", lwd=2)
+lines(vs/max(vs), BSM_EU_call_barrier(S, K, b, eta, r, vs, 0, T), col="green", lwd=2)
+lines(bs/max(bs), BSM_EU_call_barrier(S, K, bs, eta, r, v, 0, T), col="orange", lwd=2)
+lines(etas/max(etas), BSM_EU_call_barrier(S, K, b, etas, r, v, 0, T), col="purple", lwd=2)
+legend(x="topleft", legend=c("Underlying/Strike", "Time to maturity", "Risk-free interest rate", "Underlying volatility", "Barrier level", "Barrier decay"), title = "BSM model inputs",
+       lwd = 2, col = c("black", "blue", "red", "green", "orange", "purple"), cex=0.9)
+
+# Values with noise
+S = 1; K = 1; r = 0.05; v = 0.2; T = 1; b = 0.9; eta = 0.1
+S_Ks = seq(0.5, 1.5, 0.005)
+prices=BSM_EU_call_barrier(S_Ks, K, b, eta, r, v, 0, T)
+plot(S_Ks, prices + rnorm(length(prices), mean=0, sd=0.4) * prices, pch=20,
+     xlab="Increasing value of input", ylab="Value of option", col=alpha("black",0.75))
+lines(S_Ks, prices, cex=0.01, col="green")
+legend(x="topleft", legend=c("Noisy BSM prices", "Exact BSM prices"), lty=c(NA, 1), pch=c(20, NA), col=c("black", "green"))
 
 #########################
 # Plotting Long Fwd value
@@ -84,22 +112,22 @@ for (path in 2:5) {
 # Importing and plotting Ensemble results
 
 tb = read_excel(paste0(filepath,"Results_reorgs.xlsx"),"Ensembles")
-Ensemble_list = list(c("Mean", "solid"), c("Best", "dotted"))
+Ensemble_list = list(c("Mean", "dotted"), c("Best", "solid"))
 tb = tb %>% mutate(logLoss=log10(Loss))
-plot(x=0, y=0, xlab="Experiment number", ylab="Log(MSE Losses)", ylim=c(min(tb$logLoss), max(tb$logLoss)), xlim=c(0.5, 6.5))
+plot(x=0, y=0, xlab="Experiment number", ylab="Log(MSE Losses)", ylim=c(min(tb$logLoss), max(tb$logLoss)), xlim=c(0.8, 7.2))
 for (c in 1:4) {
     for (t in Ensemble_list) {
         data = tb %>% filter(Training==c, Ensemble_type==t[1])
         lines(unlist(data %>% select(Experiment)), unlist(data %>% select(logLoss)), col=c, lty=t[2], lwd=2)
     }
 }
-legend(x="topleft", legend=c("Training 1", "Training 2", "Training 3", "Training 4"), title = "Training", lwd = 2, col = 1:4)
-legend(x="bottomright", legend=c("Mean", "Best"), title = "Ensemble", lwd=2, lty=c("solid", "dotted"))
+legend(x="topleft", legend=c("Training 1", "Training 2", "Training 3", "Training 4"), title = "Training", lwd = 2, col = 1:4, cex=0.8)
+legend(x="bottomright", legend=c("Mean", "Best"), title = "Ensemble", lwd=2, lty=c("dotted", "solid"), cex=0.8)
 
 ################################
 # Plotting example tracking path
 
-data = testing_paths_best[[1]][[1]][[1]][[3]]
+data = testing_paths_best[[1]][[1]][[1]][[1]]
 plot(data$t, data$S, ylim=c(-160, 160), type="l", xlab="Time", ylab="Value", col="blue")
 lines(data$t, data$K, col="black")
 lines(data$t, data$ML, col="green")
@@ -116,12 +144,35 @@ data = results_best_detail[[1]][[1]][[1]]
 # Plot Predicted vs Actual
 plot(x=data$true, y=data$pred, xlab='BSM Price', ylab='ML Price', col=alpha("black", 0.2), cex=0.001)
 lines(data$true, data$true, col="green")
+legend(x="topleft", legend=c("ML prices", "Zero error"), lty=c(NA, 1), pch=c(20, NA), col=c("black", "green"))
 # Plot Error/K against S/K
 plot(x=data$S_K, y=data$mod_err, ylim=c(-0.06, 0.06), xlab='Underlying / Strike', ylab='(ML Price - BSM Price) / Strike', col=alpha("black", 0.2), cex=0.001)
 abline(h=0, col="green")
+legend(x="bottomleft", legend=c("Errors", "Zero error"), lty=c(NA, 1), pch=c(20, NA), col=c("black", "green"))
 # Plot Error/K against T-t
 plot(x=data$T_t, y=data$mod_err, ylim=c(-0.06, 0.06), xlab='Years to maturity', ylab='(ML Price - BSM Price) / Strike', col=alpha("black", 0.2), cex=0.001)
 abline(h=0, col="green")
+legend(x="bottomright", legend=c("Errors", "Zero error"), lty=c(NA, 1), pch=c(20, NA), col=c("black", "green"))
+
+# Try using smoothScatter (not used as not as clear as the basic dots)
+# Plot Error/BSM Price against S/K
+smoothScatter(x=data$S_K, y=data$mod_err, ylim=c(-0.06, 0.06), xlab='Underlying / Strike', ylab='100*(ML-BSM)/BSM Prices', colramp = colorRampPalette(c("white", "black")), cex=0.001)
+abline(h=0, col="green")
+legend(x="bottomright", legend=c("Errors", "Zero error"), lty=c(NA, 1), pch=c(20, NA), col=c("black", "green"))
+# Plot Error/BSM Price against S/K
+smoothScatter(x=data$T_t, y=data$mod_err, ylim=c(-0.06, 0.06), xlab='Years to maturity', ylab='100*(ML-BSM)/BSM Prices', colramp = colorRampPalette(c("white", "black")), cex=0.001)
+abline(h=0, col="green")
+legend(x="bottomright", legend=c("Errors", "Zero error"), lty=c(NA, 1), pch=c(20, NA), col=c("black", "green"))
+
+# Try percentage error (not used as too much weight to percentage errors in very small prices)
+# Plot Error/BSM Price against S/K
+plot(x=data$S_K, y=data$err/data$true*100, ylim=c(-30, 30), xlab='Underlying / Strike', ylab='100*(ML-BSM)/BSM Prices', col=alpha("black", 0.2), cex=0.001)
+abline(h=0, col="green")
+legend(x="bottomright", legend=c("Errors", "Zero error"), lty=c(NA, 1), pch=c(20, NA), col=c("black", "green"))
+# Plot Error/BSM Price against T-t
+plot(x=data$T_t, y=data$err/data$true*100, ylim=c(-30, 30), xlab='Years to maturity', ylab='100*(ML-BSM)/BSM Prices', col=alpha("black", 0.2), cex=0.001)
+abline(h=0, col="green")
+legend(x="bottomright", legend=c("Errors", "Zero error"), lty=c(NA, 1), pch=c(20, NA), col=c("black", "green"))
 
 ###############
 # Other testing
@@ -155,3 +206,14 @@ for (s in S) {
     else {BS_C_DO_RQLib = c(BS_C_DO_RQLib, BarrierOption("downout", "call", s, K, 0, r, 1, v, B)$value)}
 }
 lines(S, BS_C_DO_RQLib, col="blue")
+
+# Sample data
+x <- 1:10
+y <- c(3, 5, 8, 6, 4, 7, 9, 4, 6, 8)
+
+# Create a scatterplot with points and a line
+plot(x, y, type = "p", pch = 16, col = "blue", main = "Scatterplot with Line", xlab = "X", ylab = "Y")
+lines(x, y, col = "red")
+
+# Add a legend
+legend("topright", legend = c("Scatterplot", "Line"), col = c("blue", "red"), pch = c(16, NA), lty = c(NA, 1))
