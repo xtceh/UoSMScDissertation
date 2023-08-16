@@ -6,4 +6,6 @@ Coded in R using Keras and Tensorflow packages.
 
 Dissertation stored as pdf.
 
-Results displayed in Excel currently so need to convert to something Github-friendly.
+Results displayed in Excel.
+
+Shiny app to use the models stored in Shiny_MLOptionPricing folder
