@@ -12,7 +12,7 @@ source(paste0(filepath,"RFunctions.R"))
 ######################################
 # Load trained models and test results
 
-exp_no = "7"
+exp_no = "2"
 # Load trained_models from disk
 trained_models = readRDS(paste0(filepath,"TrainedModels_",exp_no,".RDS"))
 models                  = trained_models[[1]]
@@ -86,7 +86,7 @@ S = 1; K = 1; r = 0.05; v = 0.2; T = 1; b = 0.9; eta = 0.1
 S_Ks = seq(0.5, 1.5, 0.005)
 prices=BSM_EU_call_barrier(S_Ks, K, b, eta, r, v, 0, T)
 plot(S_Ks, prices + rnorm(length(prices), mean=0, sd=0.4) * prices, pch=20,
-     xlab="Increasing value of input", ylab="Value of option", col=alpha("black",0.75))
+     xlab="Strike / Underlying price", ylab="Value of option", col=alpha("black",0.75))
 lines(S_Ks, prices, cex=0.01, col="green")
 legend(x="topleft", legend=c("Noisy BSM prices", "Exact BSM prices"), lty=c(NA, 1), pch=c(20, NA), col=c("black", "green"))
 
@@ -127,15 +127,17 @@ legend(x="bottomright", legend=c("Mean", "Best"), title = "Ensemble", lwd=2, lty
 ################################
 # Plotting example tracking path
 
-data = testing_paths_best[[1]][[1]][[1]][[1]]
-plot(data$t, data$S, ylim=c(-160, 160), type="l", xlab="Time", ylab="Value", col="blue")
+data = testing_paths_best[[1]][[1]][[1]][[3]]
+plot(data$t, data$S, ylim=c(-125, 140), type="l", xlab="Time", ylab="Value", col="blue")
 lines(data$t, data$K, col="black")
-lines(data$t, data$ML, col="green")
+lines(data$t, -data$ML, col="green")
 lines(data$t, data$V_b_ML, col="orange")
 lines(data$t, data$V_s_ML, col="purple")
 lines(data$t, data$V_ML, col="red")
-legend("bottomleft", legend=c("Underlying", "Strike", "Option", "Underlying hedge", "Cash", "Portfolio"),
-       col=c("blue", "black", "green", "orange", "purple", "red"), lty="solid", cex=0.75, pt.cex = 1)
+legend("bottomright", legend=c("Option", "Underlying hedge", "Cash"),
+       col=c("green", "orange", "purple"), lty="solid", cex=0.8, pt.cex = 1)
+legend("bottomleft", legend=c("Underlying", "Strike", "Portfolio (net)"),
+       col=c("blue", "black", "red"), lty="solid", cex=0.8, pt.cex = 1)
 
 #########################
 # Plotting results errors

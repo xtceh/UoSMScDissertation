@@ -247,9 +247,9 @@ ML_vega = function(models, model_inputs, means, stds, K, prices = NULL) { # mode
 # Function to test results
 test_acc = function(models, test, means, stds, training_cols) {
     results           = NULL
-    t0                = Sys.time()
+    t0                = proc.time()
     results$pred      = ML_price(models, test %>% dplyr::select(all_of(training_cols)), means, stds, test$K)
-    t1                = difftime(Sys.time(), t0, units = "secs")
+    t1                = as.numeric((proc.time()-t0)[1])
     results$r         = test$r
     results$sigma     = test$sigma
     results$K         = test$K
@@ -315,10 +315,11 @@ build_models = function(hidden_layers, training, training2, params, training_col
                 print(paste0("m=",m,", p=",p,", i=",i,", params: ",list_to_string(params[[p]])))
                 set_random_seed(i)
                 models[[m]][[p]][[i]] = get(paste0("build_model_", hidden_layers[m]))(ncol(training_x[[i]]), units, L2_factor, activation, initializer, dropout, optimizer, momentum) # Build model
-                t0                = Sys.time()
+                t_b               = proc.time() #t0=Sys.time()
                 learns[[m]][[p]][[i]] = models[[m]][[p]][[i]] %>% # Fit model to training data
                     fit(x = training_x[[i]], y = training[[i]]$BS_K, epochs = epochs, batch_size = batch_size, validation_split = .3, verbose = TRUE,)
-                t1                = difftime(Sys.time(), t0, units = "secs")
+                t_e               = proc.time()
+                t1                = as.numeric((t_e-t_b)[1]) #print(difftime(Sys.time(), t0, units = "secs"))
                 temp              = test_acc(list(models[[m]][[p]][[i]]), training[[i]], list(means[[i]]), list(stds[[i]]), training_cols)
                 results           = temp[[1]] # Get test measures of model against training data
                 results_detail[[m]][[p]][[i]] = results
