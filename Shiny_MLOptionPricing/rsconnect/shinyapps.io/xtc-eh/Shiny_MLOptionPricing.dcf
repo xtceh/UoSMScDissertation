@@ -1,0 +1,12 @@
+name: Shiny_MLOptionPricing
+title: Shiny_MLOptionPricing
+username: xtc-eh
+account: xtc-eh
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 9527104
+bundleId: 7512264
+url: https://xtc-eh.shinyapps.io/Shiny_MLOptionPricing/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
