@@ -45,22 +45,22 @@ dummy_range = c(1, 5) # Set to c(0, 0) if not adding a dummy variable (1, 5)
 param_num   = 3 # Number of random parameter settings to be used for each date and maturity combination
 T           = seq(0, Tend+0.5, 1/4)
 excl        = 0 # Not needed now after moving to using S / K for training rather than S and K separately
-noise_sigma = 0.1
+noise_sigma = 0.4
 num_paths   = 10
 training    = sim_paths(target_fn, S0, N, Tend, K_range, b_range, eta_range, r_range, sigma_range, dummy_range, param_num, T, excl, num_paths, noise_sigma)
 training2   = sim_paths(target_fn, S0, N, Tend, K_range, b_range, eta_range, r_range, sigma_range, dummy_range, max(1, as.integer(param_num * 0.3)), T, excl, num_paths = 1, noise_sigma = 0)
 
 # Fit multiple models to multiple training paths
 training_cols           = c("S_K", "T_t", "r", "sigma", "b", "eta", "dummy") # Vector of columns to be used in training the model(s) (set up for "S_K", "T_t", "b", "eta", "r", "sigma", "dummy")
-hidden_layers           = c(2) # Vector - 1, 2, 3 and/or 4 allowed according to number of hidden layers required. Use "1b"/"2b"/"1l"/"2l" to use batch or layer normalisation or "2sgdm" to test sgd optimiser with momentum = 0.9.
+hidden_layers           = c(4) # Vector - 1, 2, 3 and/or 4 allowed according to number of hidden layers required. Use "1b"/"2b"/"1l"/"2l" to use batch or layer normalisation or "2sgdm" to test sgd optimiser with momentum = 0.9.
 # params must be a list of lists. Each list must give values for epochs, batch_size, units, L2_factor, activation, optimizer and momentum (used only for 'sgdm' optimizer)
 # activation options are "relu" or "sigmoid" or "tanh" or "softmax"
 # optimizer options are "sgd", "rmsprop", "adagrad", "adadelta", "adam", "adamax", "nadam"
 # units options are a vector to allow each hidden layer (max 4) to have a different number of units
 # initializer options are "glorot_uniform", "glorot_normal", "he_normal", "he_uniform"
-params                  = list(list(epochs = 25, batch_size = 64, units = c(100, 100), L2_factor = 0.002,
+params                  = list(list(epochs = 100, batch_size = 64, units = c(100, 100, 100, 100), L2_factor = 0.002,
                                     activation = "relu", initializer = "glorot_normal", dropout = 0,
-                                    optimizer = "sgdm", momentum = 0.95))
+                                    optimizer = "sgdm", momentum = 0.925))
 trained_models          = build_models(hidden_layers, training, training2, params, training_cols)
 models                  = trained_models[[1]]
 learns                  = trained_models[[2]]
@@ -121,7 +121,7 @@ write_excel_csv(results_best_per_model, paste0(filepath,"results_best_per_model.
 ###############################################
 # Saving and loading models and testing results
 
-exp_no = 7
+exp_no = 8
 # Save trained models and test results to disk
 saveRDS(trained_models,paste0(filepath, "TrainedModels_", exp_no, ".RDS"))
 save_models(models, filepath, exp_no)
