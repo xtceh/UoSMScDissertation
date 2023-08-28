@@ -374,6 +374,7 @@ choose_results_train_3 = function(results_train, m, p, i, col_name) {
 
 # Function to return, for 1 simulation of underlying prices, the tracking error over time for both BS and ML models
 tracking_path = function(target_fn, target_fn_d, testing, models, means, stds, K_test, T_test, b_test, eta_test, r_test, sigma_test, dummy_test, training_cols) { # models, means and stds are each lists with a number of elements equal to the number of training paths the model was trained with
+    N                     = nrow(testing)
     testing_path          = testing %>% dplyr::group_by(t) %>% dplyr::summarise(S = max(S), K = K_test, T = T_test, b = b_test,
                                                 eta=eta_test, r = r_test, sigma = sigma_test, dummy = dummy_test) # Get one entry for each date in chosen testing run
     testing_path$T_t      = testing_path$T-testing_path$t # Add time to maturity to match new T
@@ -539,15 +540,15 @@ load_models = function(filepath, exp_no) {
     result = list()
     dirs_m = list.dirs(paste0(filepath,"models/", exp_no), recursive = FALSE)
     for (m in dirs_m) {
-        m = substr(m, nchar(m), nchar(m))
+        m = substr(m, regexpr("/[^/]*$", m) + 1, nchar(m))
         result[[m]] = list()
         dirs_p = list.dirs(paste0(filepath,"models/", exp_no, "/", m), recursive = FALSE)   
         for (p in dirs_p) {
-            p = substr(p, nchar(p), nchar(p))
+            p = substr(p, regexpr("/[^/]*$", p) + 1, nchar(p))
             result[[m]][[p]] = list()
             dirs_i = list.dirs(paste0(filepath,"models/", exp_no, "/", m, "/", p), recursive = FALSE)
             for (i in dirs_i) {
-                i = substr(i, nchar(i), nchar(i))
+                i = substr(i, regexpr("/[^/]*$", i) + 1, nchar(i))
                 result[[m]][[p]][[i]] = load_model_tf(paste0(filepath,"models/", exp_no, "/", m, "/", p, "/", i))
             }
         }
