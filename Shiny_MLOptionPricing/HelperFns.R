@@ -76,7 +76,7 @@ BSM_EU_call_barrier_delta = function(S, K, b, eta, r, sigma, t=0, T, type1 = "do
 # Functions adapted from RFunctions.R as used for experiments in project
 
 # Function to generate a simple path of values for S with other values constant
-generate_data_ltd = function(target_fn, S0, K, b, eta, r, sigma, dummy, T, seed) {
+generate_data_ltd = function(target_fn, S0, K, b, eta, r, sigma, dummy, T, defaults, seed) {
     set.seed(seed = seed)
     S_all     = sde::GBM(x=S0, N=T*240, r = r, sigma = sigma, T = T)
     t         = seq(0, T, 1/240)
@@ -91,8 +91,6 @@ generate_data_ltd = function(target_fn, S0, K, b, eta, r, sigma, dummy, T, seed)
     tb$T_t    = tb$T - tb$t
     tb$S_K    = tb$S / tb$K
     tb$B      = tb$b * tb$K * exp(-tb$eta * tb$T_t)
-    tb$BS     = target_fn(S = tb$S, K = tb$K, b = tb$b, eta = tb$eta, r = tb$r, sigma = tb$sigma, t = tb$t, T = tb$T)
-    tb$BS_K   = tb$BS / tb$K
     return(tb)
 }
 
@@ -161,13 +159,14 @@ MLPricePerExp = function(Exp, models, means, stds, S, K, T, r, v, b, eta, dummy)
     input_data = scale_data(input_data, means[[Exp]], stds[[Exp]])
     return(ind(S > B) * predict(models[[Exp]], input_data) * K)
 }
-BSMPricePerExp = function(Exp, S, K, T, r, v, b, eta) {
-    if(Exp == 1 | Exp == 2) {return(BSM_EU_call(S, K, 0, 0, r, v, 0, T))}
+BSMPricePerExp = function(Exp, S, K, T, r, v, b, eta, defaults) {
+    if (Exp == 1) {return(BSM_EU_call(S, K, 0, 0, defaults$r, defaults$v, 0, T))}
+    else if (Exp == 2) {return(BSM_EU_call(S, K, 0, 0, r, v, 0, T))}
     else {return(BSM_EU_call_barrier(S, K, b, eta, r, v, 0, T))}
 }
 
 # Function to plot the ML model results against the BSM model for a range of one of the inputs
-PlotComps = function(Exp, type, models, means, stds, S, K, T, r, v, b, eta, dummy, isPercent=FALSE) {
+PlotComps = function(Exp, type, models, means, stds, S, K, T, r, v, b, eta, dummy, defaults, isPercent=FALSE) {
     if (type=="S_K") {S = seq(K/2, K*2, length.out=1000); S_K=S/K; xs=S; xlab="Underlying Price"; main="Option vs Underlying"}
     else if (type=="T") {T = seq(1/240, 2.5, length.out=1000); S_K=S/K; xs=T; xlab="Time to Maturity"; main="Option vs Time to Maturity"}
     else if (type=="r") {r = seq(0.01, 0.12, length.out=1000); S_K=S/K; xs=r; xlab="Interest Rate (annual %)"; main="Option vs Interest Rate"}
@@ -176,7 +175,7 @@ PlotComps = function(Exp, type, models, means, stds, S, K, T, r, v, b, eta, dumm
     else if (type=="eta") {eta = seq(0, 0.3, length.out=1000); S_K=S/K; xs=eta; xlab="Barrier decay rate (annual %)"; main="Option vs Barrier Decay Rate"}
     else if (type=="dummy") {dummy = seq(1, 5, length.out=1000); S_K=S/K; xs=dummy; xlab="Dummy value in training inputs"; main="Option vs Dummy Value"}
     MLPrices = MLPricePerExp(Exp, models, means, stds, S, K, T, r, v, b, eta, dummy)
-    BSMPrices = BSMPricePerExp(Exp, S, K, T, r, v, b, eta)
+    BSMPrices = BSMPricePerExp(Exp, S, K, T, r, v, b, eta, defaults)
     if (type=="dummy") {BSMPrices = rep(BSMPrices, 1000)}
     plot(xs, MLPrices, type="l", col="red", xlab=xlab, ylab="Value of option",
          ylim=c(0,max(max(MLPrices),max(BSMPrices))), main=main, xaxt="n")
@@ -197,37 +196,41 @@ GetNumericalInputRow = function(width1, width2, input, inputText, val, min, max,
 }
 
 # Function to create a tracking path for the ML or BSM model
-GetTrackingPath = function(Exp, models, means, stds, S, K, b, eta, r, v, dummy, T, seed) {
-    if (Exp == 1) {training_cols = c("S_K", "T_t")}
+GetTrackingPath = function(Exp, models, means, stds, S, K, b, eta, r, v, dummy, T, defaults, seed=1) {
+    if (Exp == 1) {training_cols = c("S_K", "T_t"); r=defaults$r; v=defaults$v}
     else if (Exp == 2) {training_cols = c("S_K", "T_t", "r", "sigma")}
     else if (Exp == 3 | Exp == 4 | Exp == 5) {training_cols = c("S_K", "T_t", "r", "sigma", "b", "eta")}
     else {training_cols = c("S_K", "T_t", "r", "sigma", "b", "eta", "dummy")}
     if (Exp == 1 | Exp == 2) {target_fn = BSM_EU_call; target_fn_d = BSM_EU_call_delta}
     else {target_fn = BSM_EU_call_barrier; target_fn_d = BSM_EU_call_barrier_delta}
-    ltd_path = generate_data_ltd(target_fn, S, K, b, eta, r, v, dummy, T, seed)
+    ltd_path = generate_data_ltd(target_fn, S, K, b, eta, r, v, dummy, T, defaults, seed)
     return(tracking_path_ltd(target_fn, target_fn_d, ltd_path, list(models[[Exp]]), list(means[[Exp]]), list(stds[[Exp]]), K, T, b, eta, r, v, dummy, training_cols))
 }
 
 # Function to plot elements of a tracking path for the ML or BSM model
-PlotTrackingElements = function(Exp, models, means, stds, S, K, b, eta, r, v, dummy, T, track_path, ML_BSM="ML") {
+PlotTrackingElements = function(track_path, ML_BSM="ML") {
     if (ML_BSM=="ML") {data = track_path %>% select(S, t, K, Opt=ML, Cash=V_b_ML, Hedge=V_s_ML, TrackErr=V_ML)}
     else {data = track_path %>% select(S, t, K, Opt=BS, Cash=V_b_BS, Hedge=V_s_BS, TrackErr=V_BS)}
+    par(mar = c(4, 4, 1, 2))
     plot(data$t, data$S, ylim=c(-180, 140), type="l", xlab="Time", ylab="Value", col="blue")
     lines(data$t, data$K, col="black")
     lines(data$t, -data$Opt, col="green")
     lines(data$t, data$Cash, col="orange")
     lines(data$t, data$Hedge, col="purple")
     lines(data$t, data$TrackErr, col="red")
-    legend("bottomright", legend=c("Option", "Underlying hedge", "Cash"),
+    legend("bottomright", legend=c("Option", "Underlying", "Cash"),
            col=c("green", "orange", "purple"), lty="solid", cex=0.8, pt.cex = 1)
     legend("bottomleft", legend=c("Underlying", "Strike", "Portfolio (net)"),
            col=c("blue", "black", "red"), lty="solid", cex=0.8, pt.cex = 1)
+    par(mar = c(5, 4, 4, 2))
 }
 
 # Function to plot the net hedged portfolio values resulting from using the ML or BSM model
-PlotHedgeComps = function(Exp, models, means, stds, S, K, b, eta, r, v, dummy, T, track_path) {
+PlotHedgeComps = function(track_path) {    
+    par(mar = c(5, 4, 1, 2))
     plot(track_path$t, track_path$V_ML, ylim=c(-4, 3), type="l", xlab="Time", ylab="Value", col="blue")
     lines(track_path$t, track_path$V_BS, col="red")
     legend("bottomleft", legend=c("ML Portfolio (net)", "BSM Portfolio (net)"),
            col=c("blue", "red"), lty="solid", cex=0.8, pt.cex = 1)
+    par(mar = c(5, 4, 4, 2))
 }
