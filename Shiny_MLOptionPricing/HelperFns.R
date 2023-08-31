@@ -24,9 +24,9 @@ ML_delta = function(models, model_inputs, means, stds, K, prices = NULL) { # mod
     if (is.null(prices)) {
         prices = ML_price(models, model_inputs, means, stds, K)
     }
-    model_inputs$S_K = model_inputs$S_K + 0.000001
+    model_inputs$S_K = model_inputs$S_K + 0.0001
     prices_adj = ML_price(models, model_inputs, means, stds, K)
-    return((prices_adj - prices) * 1000000 / K) # Returns price change for an increase of 1 in S
+    return((prices_adj - prices) * 10000 / K) # Returns price change for an increase of 1 in S
 }
 
 # Call payoff and other helper functions
@@ -63,13 +63,13 @@ BSM_EU_call_barrier = function(S, K, b, eta, r, sigma, t=0, T, type1 = "down", t
         else {return(ind(S < B) * out)}
     }
 }
-BSM_EU_call_barrier_delta = function(S, K, b, eta, r, sigma, t=0, T, type1 = "down", type2 = "out", prices = NULL) { # models/means/stds are lists - one element for each training run to be included in mean pricing
+BSM_EU_call_barrier_delta = function(S, K, b, eta, r, sigma, t=0, T, type1 = "down", type2 = "out", prices = NULL) {
     if (is.null(prices)) {
         prices = BSM_EU_call_barrier(S, K, b, eta, r, sigma, t=t, T, type1 = type1, type2 = type2)
     }
-    S = S + 0.000001 * K
+    S = S + 0.0001 * K
     prices_adj = BSM_EU_call_barrier(S, K, b, eta, r, sigma, t=t, T, type1 = type1, type2 = type2)
-    return((prices_adj - prices) * 1000000 / K) # Returns price change for an increase of 1 in S
+    return((prices_adj - prices) * 10000 / K) # Returns price change for an increase of 1 in S
 }
 
 ########################################################################
@@ -150,23 +150,32 @@ tracking_path_ltd = function(target_fn, target_fn_d, testing, models, means, std
 # Functions added for ShinyApp specifically
 
 # Functions to get ML and BSM prices dependent on Exp No
-MLPricePerExp = function(Exp, models, means, stds, S, K, T, r, v, b, eta, dummy) {
-    B = barrier(K, b, eta, T)
+MLPricePerExp = function(Exp, models, means, stds, S, K, T, r, v, b, eta, dummy, val_type="price") {
+    if (Exp == 1 | Exp == 2) {B = 0} else {B = barrier(K, b, eta, T)}
     if (Exp == 1) {input_data = tibble(S_K=S/K, T_t=T)}
     else if (Exp == 2) {input_data = tibble(S_K=S/K, T_t=T, r=r, sigma=v)}
     else if (Exp == 3 | Exp == 4 | Exp == 5) {input_data = tibble(S_K=S/K, T_t=T, r=r, sigma=v, b=b, eta=eta)}
     else {input_data = tibble(S_K=S/K, T_t=T, r=r, sigma=v, b=b, eta=eta, dummy=dummy)}
-    input_data = scale_data(input_data, means[[Exp]], stds[[Exp]])
-    return(ind(S > B) * predict(models[[Exp]], input_data) * K)
+    #input_data = scale_data(input_data, means[[Exp]], stds[[Exp]])
+    #return(ind(S > B) * predict(models[[Exp]], input_data) * K)
+    if (val_type=="delta") {return(ind(S > B) * ML_delta(list(models[[Exp]]), input_data, list(means[[Exp]]), list(stds[[Exp]]), K))}
+    else {return(ind(S > B) * ML_price(list(models[[Exp]]), input_data, list(means[[Exp]]), list(stds[[Exp]]), K))}
 }
-BSMPricePerExp = function(Exp, S, K, T, r, v, b, eta, defaults) {
-    if (Exp == 1) {return(BSM_EU_call(S, K, 0, 0, defaults$r, defaults$v, 0, T))}
-    else if (Exp == 2) {return(BSM_EU_call(S, K, 0, 0, r, v, 0, T))}
-    else {return(BSM_EU_call_barrier(S, K, b, eta, r, v, 0, T))}
+BSMPricePerExp = function(Exp, S, K, T, r, v, b, eta, defaults, val_type="price") {
+    if (val_type=="delta") {
+        if (Exp == 1) {return(BSM_EU_call_delta(S, K, 0, 0, defaults$r, defaults$v, 0, T))}
+        else if (Exp == 2) {return(BSM_EU_call_delta(S, K, 0, 0, r, v, 0, T))}
+        else {return(BSM_EU_call_barrier_delta(S, K, b, eta, r, v, 0, T))}
+    }
+    else {
+        if (Exp == 1) {return(BSM_EU_call(S, K, 0, 0, defaults$r, defaults$v, 0, T))}
+        else if (Exp == 2) {return(BSM_EU_call(S, K, 0, 0, r, v, 0, T))}
+        else {return(BSM_EU_call_barrier(S, K, b, eta, r, v, 0, T))}
+    }
 }
 
 # Function to plot the ML model results against the BSM model for a range of one of the inputs
-PlotComps = function(Exp, type, models, means, stds, S, K, T, r, v, b, eta, dummy, defaults, isPercent=FALSE) {
+PlotComps = function(Exp, type, models, means, stds, S, K, T, r, v, b, eta, dummy, defaults, val_type="price", isPercent=FALSE) {
     if (type=="S_K") {S = seq(K/2, K*2, length.out=1000); S_K=S/K; xs=S; xlab="Underlying Price"; main="Option vs Underlying"}
     else if (type=="T") {T = seq(1/240, 2.5, length.out=1000); S_K=S/K; xs=T; xlab="Time to Maturity"; main="Option vs Time to Maturity"}
     else if (type=="r") {r = seq(0.01, 0.12, length.out=1000); S_K=S/K; xs=r; xlab="Interest Rate (annual %)"; main="Option vs Interest Rate"}
@@ -174,8 +183,8 @@ PlotComps = function(Exp, type, models, means, stds, S, K, T, r, v, b, eta, dumm
     else if (type=="b") {b = seq(0.6, 0.99, length.out=1000); S_K=S/K; xs=b; xlab="Barrier (% of strike price at maturity)"; main="Option vs Barrier Level"}
     else if (type=="eta") {eta = seq(0, 0.3, length.out=1000); S_K=S/K; xs=eta; xlab="Barrier decay rate (annual %)"; main="Option vs Barrier Decay Rate"}
     else if (type=="dummy") {dummy = seq(1, 5, length.out=1000); S_K=S/K; xs=dummy; xlab="Dummy value in training inputs"; main="Option vs Dummy Value"}
-    MLPrices = MLPricePerExp(Exp, models, means, stds, S, K, T, r, v, b, eta, dummy)
-    BSMPrices = BSMPricePerExp(Exp, S, K, T, r, v, b, eta, defaults)
+    MLPrices = MLPricePerExp(Exp, models, means, stds, S, K, T, r, v, b, eta, dummy, val_type)
+    BSMPrices = BSMPricePerExp(Exp, S, K, T, r, v, b, eta, defaults, val_type)
     if (type=="dummy") {BSMPrices = rep(BSMPrices, 1000)}
     plot(xs, MLPrices, type="l", col="red", xlab=xlab, ylab="Value of option",
          ylim=c(0,max(max(MLPrices),max(BSMPrices))), main=main, xaxt="n")

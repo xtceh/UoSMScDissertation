@@ -44,6 +44,7 @@ ui <- fluidPage(
                                      "5. Inputs: 710k, S/K, T, r, sigma, b, eta; Noise: 0.4"=5, "6. Inputs: 710k, S/K, T, r, sigma, b, eta, dummy; Noise: 0.4"=6,
                                      "7. Inputs: 710k, S/K, T, r, sigma, b, eta, dummy; Noise: 0.1"=7, "8. Inputs: 710k, S/K, T, r, sigma, b, eta, dummy; Noise: 0.4"=8),
                                 1, selectize=TRUE, width=400),
+                    selectInput("val_type", "Choose calculation type", list("Price"="price", "Delta"="delta")),
                     h2("Choose inputs for option to value")),
                 fluidRow(column(width=6),
                     column(width=6, p(style = "text-align: right; font-weight: bold;", "Trained Range"))),
@@ -122,33 +123,33 @@ server <- function(input, output) {
 ###################################################
 # Comparisons on ML and BSM Prices given User Input
     observeEvent(input$Go, {
-        tb = tibble(Exp=input$Exp, S=input$S, K=input$K, T=input$T, r=input$r/100, sigma=input$sigma/100, b=input$b/100, eta=input$eta/100, dummy=input$dummy)
+        tb = tibble(Exp=input$Exp, S=input$S, K=input$K, T=input$T, r=input$r/100, sigma=input$sigma/100, b=input$b/100, eta=input$eta/100, dummy=input$dummy, val_type=input$val_type)
         output$MLPrice <- renderText({
-            paste0("ML Model Price: <b>", format(MLPricePerExp(tb$Exp, models, means, stds, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, tb$dummy), digits=4))
+            paste0("ML Model Price: <b>", format(MLPricePerExp(tb$Exp, models, means, stds, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, tb$dummy, tb$val_type), digits=4))
         })        
         output$BSMPrice <- renderText({
-            paste0("BSM Model Price: <b>", format(BSMPricePerExp(tb$Exp, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, defaults), digits=4))
+            paste0("BSM Model Price: <b>", format(BSMPricePerExp(tb$Exp, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, defaults, tb$val_type), digits=4))
         })
         output$ValsSK <- renderPlot({
-            PlotComps(tb$Exp, "S_K", models, means, stds, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, tb$dummy, defaults)
+            PlotComps(tb$Exp, "S_K", models, means, stds, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, tb$dummy, defaults, tb$val_type)
         })
         output$ValsT <- renderPlot({
-            PlotComps(tb$Exp, "T", models, means, stds, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, tb$dummy, defaults)
+            PlotComps(tb$Exp, "T", models, means, stds, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, tb$dummy, defaults, tb$val_type)
         })
         output$Valsr <- renderPlot({
-            if (tb$Exp > 1) {PlotComps(tb$Exp, "r", models, means, stds, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, tb$dummy, defaults, TRUE)}
+            if (tb$Exp > 1) {PlotComps(tb$Exp, "r", models, means, stds, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, tb$dummy, defaults, tb$val_type, TRUE)}
         })
         output$Valsv <- renderPlot({
-            if (tb$Exp > 1) {PlotComps(tb$Exp, "v", models, means, stds, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, tb$dummy, defaults, TRUE)}
+            if (tb$Exp > 1) {PlotComps(tb$Exp, "v", models, means, stds, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, tb$dummy, defaults, tb$val_type, TRUE)}
         })
         output$Valsb <- renderPlot({
-            if (tb$Exp > 2) {PlotComps(tb$Exp, "b", models, means, stds, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, tb$dummy, defaults, TRUE)}
+            if (tb$Exp > 2) {PlotComps(tb$Exp, "b", models, means, stds, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, tb$dummy, defaults, tb$val_type, TRUE)}
         })
         output$Valseta <- renderPlot({
-            if (tb$Exp > 2) {PlotComps(tb$Exp, "eta", models, means, stds, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, tb$dummy, defaults, TRUE)}
+            if (tb$Exp > 2) {PlotComps(tb$Exp, "eta", models, means, stds, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, tb$dummy, defaults, tb$val_type, TRUE)}
         })
         output$Valsdummy <- renderPlot({
-            if (tb$Exp > 5) {PlotComps(tb$Exp, "dummy", models, means, stds, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, tb$dummy, defaults)}
+            if (tb$Exp > 5) {PlotComps(tb$Exp, "dummy", models, means, stds, tb$S, tb$K, tb$T, tb$r, tb$sigma, tb$b, tb$eta, tb$dummy, defaults, tb$val_type)}
         })
     })
 
